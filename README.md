@@ -140,7 +140,7 @@ Continuous Integration (CI) systems generallly support encrypted environment var
      - `cd android` or `cd ios`
      - `bundle exec fastlane [name of the lane]`
 
-## Deploy to Beta distribution services using *fastlane*
+## Deploy to Beta distribution services using *fastlane* (Beta Deployment)
 
 If you would like to distribute your beta builds to Google Play, please make sure you've done the steps from Settings up supply before continuing.
 
@@ -242,7 +242,7 @@ More information about additional supported beta testing services can be found i
 
 Refer this [link](https://docs.fastlane.tools/getting-started/android/beta-deployment/#:~:text=of%20%22Beta%22%20actions-,Release%20Notes,-Generate%20based%20on)
 
-## Deploy to Google Play using *fastlane*
+## Deploy to Google Play using *fastlane* (Release Deployment)
 
 ## Building your app
 
@@ -290,4 +290,213 @@ This will also:
 - Upload screenshots from  `fastlane/metadata/android` if you previously ran *screengrab*
 - Create a new production build
 - Release the production build to all users
+
+If you would like to capture and upload screenshots automatically as part of your deployement process, check out the [fastlane screenshots for Android](https://docs.fastlane.tools/getting-started/android/screenshots/) guide to get started!
+
+To gradually roll out a new build you can use:
+
+```dart
+lane :playstore do
+  # ...
+  upload_to_play_store(
+    track: 'rollout',
+    rollout: '0.5'
+  )
+end
+```
+To get a list of all available parameters for the `upload_to_play_store` action, run:
+
+```
+fastlane action upload_to_play_store
+```
+## iOS Beta deployment using *fastlane*
+
+## Building your app
+
+*fastlane* takes care of building your app using an action called *build_app*, just add the following to your `Fastfile`:
+
+```dart
+lane :beta do
+  build_app(scheme: "MyApp")
+end
+```
+Additionally you can specify more options for building your app, for example
+
+```dart
+lane :beta do
+  build_app(scheme: "MyApp",
+            workspace: "Example.xcworkspace",
+            include_bitcode: true)
+end
+```
+Try running the lane using 
+
+```
+fastlabe beta
+```
+If everything works, you should have a `[ProductName].ipa` file in the current directory. To get a list of all available parameters for build_app, run `fastlane action build_app`.
+
+#### Codesigning
+
+Chances are that something went wrong because of code signing at the previous step. So refer this [Code Signing Guide](https://docs.fastlane.tools/codesigning/getting-started/) that helps you setting up the right code signing approach for your project.
+
+## Uploading your app
+
+After building your app, it's ready to be uploaded to a beta testing service of your choice. The beauty of *fastlane* is that you can easily switch beta provider, or even upload to multiple at once, without any extra work.
+
+All you have to do is to put the name of the beta testing provider of your choice after building the app using *build_app*:
+
+```dart
+lane :beta do
+  sync_code_signing(type: "appstore")    # see code signing guide for more information
+  build_app(scheme: "MyApp")
+  upload_to_testflight
+  slack(message: "Successfully distributed a new beta build")
+end
+```
+*fastlane* automatically passes on information about the generated `.ipa ` file from build_app to the beta testing provider of your choice.
+
+To get a list of all available parameters for a given action, run
+
+```
+fastlane action slack
+```
+### Beta testing services
+
+#### TestFlight
+
+You can easily upload new builds to TestFlight (which is part of App Store Connect) using *fastlane*. To do so, just use the built-in testflight action after building your app
+
+```dart
+lane :beta do
+  # ...
+  build_app
+  upload_to_testflight
+end
+```
+Some example use cases
+
+```dart
+lane :beta do
+  # ...
+  build_app
+
+  # Variant 1: Provide a changelog to your build
+  upload_to_testflight(changelog: "Add rocket emoji")
+
+  # Variant 2: Skip the "Waiting for processing" of the binary
+  #   While this will speed up your build, it will not distribute
+  #   the binary to your tests, nor set a changelog
+  upload_to_testflight(skip_waiting_for_build_processing: true)
+end
+```
+If you used `fastlane init` to setup *fastlane*, your Apple ID is stored in the f`astlane/Appfile`. You can also overwrite the username, using `upload_to_testflight(username: "bot@fastlane.tools")`.
+
+To get a list of all available options, run
+
+```
+fastlane action upload_to_testflight
+```
+With *fastlane*, you can also automatically manage your beta testers, check out the other actions available.
+
+#### Firebase App Distribution
+
+Install the Firebase App Distribution plugin:
+
+```
+fastlane add_plugin firebase_app_distribution
+```
+Authenticate with Firebase by running the `firebase_app_distribution_login` action (or using one of the other [authentication methods](https://firebase.google.com/docs/app-distribution/ios/distribute-fastlane#step_2_authenticate_with_firebase)):
+
+```
+fastlane run firebase_app_distribution_login
+```
+
+Then add the `firebase_app_distribution` action to your lane:
+
+```dart
+lane :beta do
+  # ...
+  build_app
+
+  firebase_app_distribution(
+    app: "1:123456789:ios:abcd1234",
+    groups: "qa-team, trusted-testers"
+  )
+  # ...
+end
+```
+For more information and options (such as adding release notes) see the full [Getting Started](https://firebase.google.com/docs/app-distribution/ios/distribute-fastlane) guide.
+
+**Other options**
+
+#### HockeyApp
+#### TestFairy
+
+## iOS App Store deployement using *fastlane*
+
+## Building your app
+
+*fastlane* takes care of building your app using an action called *build_app*, just add the following to your `Fastfil`e:
+
+```dart
+lane :release do
+  build_app(scheme: "MyApp")
+end
+```
+Additionally you can specify more options for building your app, for example
+
+```dart
+lane :release do
+  build_app(scheme: "MyApp",
+            workspace: "Example.xcworkspace",
+            include_bitcode: true)
+end
+```
+Try running the lane using
+
+```
+fastlane release
+```
+If everything works, you should have a `[ProductName].ipa` file in the current directory. To get a list of all available parameters for *build_app*, run `fastlane action build_app`.
+
+## Submitting your app
+
+### Generating screenshots
+
+To find out more about how to automatically generate screenshots for the App Store, check out [*fastlane* screenshots for iOS and tvOS](https://docs.fastlane.tools/getting-started/ios/screenshots/).
+
+### Upload the binary and app metadata
+
+After building your app, it's ready to be uploaded to the App Store. If you've already followed [iOS Beta deployment using *fastlane*](https://docs.fastlane.tools/getting-started/ios/beta-deployment/), the following code might look similar already.
+
+```dart
+lane :release do
+  capture_screenshots                  # generate new screenshots for the App Store
+  sync_code_signing(type: "appstore")  # see code signing guide for more information
+  build_app(scheme: "MyApp")
+  upload_to_app_store                  # upload your app to App Store Connect
+  slack(message: "Successfully uploaded a new App Store build")
+end
+```
+*fastlane* automatically passes on information about the generated screenshots and the binary to the `upload_to_app_store` actions of your `Fastfile`.
+
+For a list of all options for each of the steps run `fastlane action [action_name]`.
+
+### More details
+
+For more details on how `upload_to_app_store` works, how you can define more options, check out [upload_to_app_store](https://docs.fastlane.tools/actions/upload_to_app_store/).
+
+## Reference Links
+
+- https://santhosh-adiga-u.medium.com/using-fastlane-in-flutter-to-build-ci-cd-pipeline-6238cb847d72
+- https://blog.nonstopio.com/fastlane-and-flutter-integrati-f3947bd5c6aa
+- https://blog.logrocket.com/fastlane-flutter-complete-guide/
+- https://www.dhiwise.com/post/flutter-fastlane-streamlining-app-deployment-workflows
+- https://deku.posstree.com/en/flutter/fastlane/
+- https://medium.com/@kadriyemacit/fastlane-setup-for-flutter-f068376f6236
+- https://semaphoreci.com/blog/automate-flutter-app-deployment-on-ios-to-testflight-using-fastlane-and-semaphore
+- https://circleci.com/blog/deploy-flutter-android/
+- https://dev.to/danielgomezrico/how-to-build-flutter-apps-on-ci-with-fastlane-and-reuse-some-code-2np3
+- [Youtube playlist](https://youtube.com/playlist?list=PLOoOwFsn2IJOea4oB3Zt-jtnwOKjg45sE&si=UJzfdvgAsNeHqPFz)
 
